@@ -1,0 +1,15 @@
+version: "3.7"
+services:
+  mariadb:
+    image: mariadb:10.3.23
+    restart: always
+    volumes:
+      - mariadb-data:/var/lib/mysql
+      - ./development:/docker-entrypoint-initdb.d
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: bootcamp
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+    ports:
+      - 3306:3306
