@@ -6,7 +6,7 @@ package pb;
 
 service UserService {
     rpc Login (LoginRequest) returns (User) {}
-    rpc InsertUser (InsertUserRequest) returns (InsertUserResponse) {}
+    rpc InsertUser (InsertUserRequest) returns (User) {}
 }
 
 message User {
