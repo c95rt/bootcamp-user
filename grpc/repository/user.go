@@ -4,15 +4,16 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/c95rt/bootcamp-user/grpc/repository/mariadb"
 	"github.com/pkg/errors"
+
+	"github.com/c95rt/bootcamp-user/grpc/entities"
 )
 
 type UserRepository interface {
-	GetUserByEmail(ctx context.Context, email string) (*User, error)
-	InsertUser(ctx context.Context, request *InsertUserRequest) (*User, error)
-	GetUserByID(ctx context.Context, id int) (*User, error)
-	UpdateUser(ctx context.Context, request *UpdateUserRequest) (*User, error)
+	GetUserByEmail(ctx context.Context, email string) (*entities.User, error)
+	InsertUser(ctx context.Context, request *entities.InsertUserRequest) (*entities.User, error)
+	GetUserByID(ctx context.Context, id int) (*entities.User, error)
+	UpdateUser(ctx context.Context, request *entities.UpdateUserRequest) (*entities.User, error)
 	DeleteUser(ctx context.Context, id int) error
 }
 
@@ -74,7 +75,7 @@ const (
 	`
 )
 
-func (db *DBConn) GetUserByEmail(ctx context.Context, email string) (*User, error) {
+func (db *DBConn) GetUserByEmail(ctx context.Context, email string) (*entities.User, error) {
 	// logger := log.With(repo.logger, "method", "Authenticate")
 
 	stmt, err := db.MariaDB.PrepareNamed(getUserByEmailQuery)
@@ -86,7 +87,7 @@ func (db *DBConn) GetUserByEmail(ctx context.Context, email string) (*User, erro
 		"active": DEFAULT_ACTIVE,
 	}
 	row := stmt.QueryRow(args)
-	var user User
+	var user entities.User
 	if err := row.Scan(
 		&user.ID,
 		&user.Email,
@@ -103,7 +104,7 @@ func (db *DBConn) GetUserByEmail(ctx context.Context, email string) (*User, erro
 	return &user, nil
 }
 
-func (db *DBConn) InsertUser(ctx context.Context, request *InsertUserRequest) (*User, error) {
+func (db *DBConn) InsertUser(ctx context.Context, request *entities.InsertUserRequest) (*entities.User, error) {
 	tx, err := db.MariaDB.NewTx()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start transaction")
@@ -126,7 +127,7 @@ func (db *DBConn) InsertUser(ctx context.Context, request *InsertUserRequest) (*
 		return nil, err
 	}
 
-	return &User{
+	return &entities.User{
 		ID:         id,
 		Email:      request.Email,
 		Firstname:  request.Firstname,
@@ -137,7 +138,7 @@ func (db *DBConn) InsertUser(ctx context.Context, request *InsertUserRequest) (*
 	}, nil
 }
 
-func (db *DBConn) insertUserTx(ctx context.Context, tx mariadb.Tx, request *InsertUserRequest) (int, error) {
+func (db *DBConn) insertUserTx(ctx context.Context, tx Tx, request *entities.InsertUserRequest) (int, error) {
 	stmt, err := db.MariaDB.PrepareNamed(insertUserQuery)
 	if err != nil {
 		return 0, err
@@ -163,11 +164,11 @@ func (db *DBConn) insertUserTx(ctx context.Context, tx mariadb.Tx, request *Inse
 	return int(id), nil
 }
 
-func (db *DBConn) insertUserAdditionalTx(ctx context.Context, tx mariadb.Tx, request *InsertUserRequest) (*UserAdditional, error) {
-	return &UserAdditional{}, nil
+func (db *DBConn) insertUserAdditionalTx(ctx context.Context, tx Tx, request *entities.InsertUserRequest) (*entities.UserAdditional, error) {
+	return &entities.UserAdditional{}, nil
 }
 
-func (db *DBConn) GetUserByID(ctx context.Context, userID int) (*User, error) {
+func (db *DBConn) GetUserByID(ctx context.Context, userID int) (*entities.User, error) {
 	stmt, err := db.MariaDB.PrepareNamed(getUserByIDQuery)
 	if err != nil {
 		return nil, err
@@ -180,7 +181,7 @@ func (db *DBConn) GetUserByID(ctx context.Context, userID int) (*User, error) {
 
 	row := stmt.QueryRow(args)
 
-	var user User
+	var user entities.User
 	if err := row.Scan(
 		&user.ID,
 		&user.Email,
@@ -197,7 +198,7 @@ func (db *DBConn) GetUserByID(ctx context.Context, userID int) (*User, error) {
 	return &user, nil
 }
 
-func (db *DBConn) UpdateUser(ctx context.Context, request *UpdateUserRequest) (*User, error) {
+func (db *DBConn) UpdateUser(ctx context.Context, request *entities.UpdateUserRequest) (*entities.User, error) {
 	stmt, err := db.MariaDB.PrepareNamed(updateUserQuery)
 	if err != nil {
 		return nil, err
@@ -216,7 +217,7 @@ func (db *DBConn) UpdateUser(ctx context.Context, request *UpdateUserRequest) (*
 		return nil, err
 	}
 
-	return &User{
+	return &entities.User{
 		ID:        request.ID,
 		Email:     request.Email,
 		Firstname: request.Firstname,

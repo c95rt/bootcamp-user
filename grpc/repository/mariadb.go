@@ -1,4 +1,4 @@
-package mariadb
+package repository
 
 import (
 	"database/sql"
@@ -27,7 +27,7 @@ type conn interface {
 }
 
 type Tx interface {
-	db
+	conn
 
 	Commit() error
 	Rollback() error

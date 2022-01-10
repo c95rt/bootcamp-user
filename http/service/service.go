@@ -20,10 +20,9 @@ type service struct {
 	logger     log.Logger
 }
 
-func NewService(rep repository.UserRepository, logger log.Logger) Service {
+func NewService(rep repository.UserRepository) Service {
 	return &service{
 		repository: rep,
-		logger:     logger,
 	}
 }
 

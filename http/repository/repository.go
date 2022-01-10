@@ -14,9 +14,8 @@ type Repository interface {
 	UserRepository
 }
 
-func NewRepository(conn *grpc.ClientConn, logger log.Logger) UserRepository {
+func NewRepository(conn *grpc.ClientConn) UserRepository {
 	return &Conn{
-		conn:   conn,
-		logger: log.With(logger, "error", "grpc"),
+		conn: conn,
 	}
 }
