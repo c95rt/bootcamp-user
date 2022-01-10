@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/c95rt/bootcamp-user/grpc/entities"
 	"github.com/c95rt/bootcamp-user/grpc/repository"
 	"github.com/c95rt/bootcamp-user/helpers"
 )
@@ -13,8 +14,8 @@ type service struct {
 }
 
 type Service interface {
-	Login(ctx context.Context, request *repository.LoginRequest) (*repository.User, error)
-	InsertUser(ctx context.Context, request *repository.InsertUserRequest) (*repository.User, error)
+	Login(ctx context.Context, request *entities.LoginRequest) (*entities.User, error)
+	InsertUser(ctx context.Context, request *entities.InsertUserRequest) (*entities.User, error)
 	/*UpdateUser(ctx context.Context, user *User) error
 	GetUser(ctx context.Context, id string) (*User, error)
 	DeleteUser(ctx context.Context, id string) error*/
@@ -26,7 +27,7 @@ func NewService(rep repository.Repository) Service {
 	}
 }
 
-func (s service) Login(ctx context.Context, request *repository.LoginRequest) (*repository.User, error) {
+func (s service) Login(ctx context.Context, request *entities.LoginRequest) (*entities.User, error) {
 	// validate struct
 
 	user, err := s.repository.GetUserByEmail(ctx, request.Email)
@@ -45,7 +46,7 @@ func (s service) Login(ctx context.Context, request *repository.LoginRequest) (*
 	return user, nil
 }
 
-func (s service) InsertUser(ctx context.Context, request *repository.InsertUserRequest) (*repository.User, error) {
+func (s service) InsertUser(ctx context.Context, request *entities.InsertUserRequest) (*entities.User, error) {
 	// validate struct
 
 	emailExists, err := s.repository.GetUserByEmail(ctx, request.Email)

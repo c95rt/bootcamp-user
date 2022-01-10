@@ -3,10 +3,8 @@ package transport
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
-	"github.com/go-kit/log"
 	"github.com/gorilla/mux"
 
 	"github.com/c95rt/bootcamp-user/http/endpoints"
@@ -14,8 +12,7 @@ import (
 	httptransport "github.com/go-kit/kit/transport/http"
 )
 
-func NewHTTPServer(endpoints endpoints.Endpoints, logger log.Logger) http.Handler {
-	fmt.Println("Debug NewHTTPServer...")
+func NewHTTPServer(endpoints endpoints.Endpoints) http.Handler {
 	r := mux.NewRouter()
 	r.Use(commonMiddleware)
 

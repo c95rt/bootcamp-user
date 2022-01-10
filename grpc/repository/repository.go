@@ -2,12 +2,10 @@ package repository
 
 import (
 	"github.com/jmoiron/sqlx"
-
-	"github.com/c95rt/bootcamp-user/grpc/repository/mariadb"
 )
 
 type DBConn struct {
-	MariaDB *mariadb.DB
+	MariaDB *DB
 }
 
 type Repository interface {
@@ -15,7 +13,7 @@ type Repository interface {
 }
 
 func NewRepository(db *sqlx.DB) (Repository, error) {
-	mariaDBConn, err := mariadb.New(db)
+	mariaDBConn, err := New(db)
 	if err != nil {
 		return nil, err
 	}
