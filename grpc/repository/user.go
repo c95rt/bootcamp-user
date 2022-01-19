@@ -5,15 +5,17 @@ import (
 	"database/sql"
 
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/c95rt/bootcamp-user/grpc/entities"
+	"github.com/c95rt/bootcamp-user/grpc/models"
 )
 
 type UserRepository interface {
-	GetUserByEmail(ctx context.Context, email string) (*entities.User, error)
-	InsertUser(ctx context.Context, request *entities.InsertUserRequest) (*entities.User, error)
-	GetUserByID(ctx context.Context, id int) (*entities.User, error)
-	UpdateUser(ctx context.Context, request *entities.UpdateUserRequest) (*entities.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
+	InsertUser(ctx context.Context, request *models.InsertUserRequest) (*models.User, error)
+	GetUserByID(ctx context.Context, id int) (*models.User, error)
+	UpdateUser(ctx context.Context, request *models.UpdateUserRequest) (*models.User, error)
 	DeleteUser(ctx context.Context, id int) error
 }
 
@@ -75,19 +77,17 @@ const (
 	`
 )
 
-func (db *DBConn) GetUserByEmail(ctx context.Context, email string) (*entities.User, error) {
-	// logger := log.With(repo.logger, "method", "Authenticate")
-
+func (db *DBConn) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	stmt, err := db.MariaDB.PrepareNamed(getUserByEmailQuery)
 	if err != nil {
-		return nil, err
+		return &models.User{}, err
 	}
 	args := map[string]interface{}{
 		"email":  email,
 		"active": DEFAULT_ACTIVE,
 	}
 	row := stmt.QueryRow(args)
-	var user entities.User
+	var user models.User
 	if err := row.Scan(
 		&user.ID,
 		&user.Email,
@@ -99,15 +99,15 @@ func (db *DBConn) GetUserByEmail(ctx context.Context, email string) (*entities.U
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, err
+		return &models.User{}, err
 	}
 	return &user, nil
 }
 
-func (db *DBConn) InsertUser(ctx context.Context, request *entities.InsertUserRequest) (*entities.User, error) {
+func (db *DBConn) InsertUser(ctx context.Context, request *models.InsertUserRequest) (*models.User, error) {
 	tx, err := db.MariaDB.NewTx()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to start transaction")
+		return &models.User{}, errors.Wrap(err, "failed to start transaction")
 	}
 	defer func() {
 		if err != nil {
@@ -119,15 +119,15 @@ func (db *DBConn) InsertUser(ctx context.Context, request *entities.InsertUserRe
 
 	id, err := db.insertUserTx(ctx, tx, request)
 	if err != nil {
-		return nil, err
+		return &models.User{}, err
 	}
 
-	userAdditional, err := db.insertUserAdditionalTx(ctx, tx, request)
+	userAdditional, err := db.insertUserAdditionalTx(ctx, tx, id, request)
 	if err != nil {
-		return nil, err
+		return &models.User{}, err
 	}
 
-	return &entities.User{
+	return &models.User{
 		ID:         id,
 		Email:      request.Email,
 		Firstname:  request.Firstname,
@@ -138,7 +138,7 @@ func (db *DBConn) InsertUser(ctx context.Context, request *entities.InsertUserRe
 	}, nil
 }
 
-func (db *DBConn) insertUserTx(ctx context.Context, tx Tx, request *entities.InsertUserRequest) (int, error) {
+func (db *DBConn) insertUserTx(ctx context.Context, tx Tx, request *models.InsertUserRequest) (int, error) {
 	stmt, err := db.MariaDB.PrepareNamed(insertUserQuery)
 	if err != nil {
 		return 0, err
@@ -164,14 +164,28 @@ func (db *DBConn) insertUserTx(ctx context.Context, tx Tx, request *entities.Ins
 	return int(id), nil
 }
 
-func (db *DBConn) insertUserAdditionalTx(ctx context.Context, tx Tx, request *entities.InsertUserRequest) (*entities.UserAdditional, error) {
-	return &entities.UserAdditional{}, nil
-}
+func (db *DBConn) insertUserAdditionalTx(ctx context.Context, tx Tx, id int, request *models.InsertUserRequest) (*models.UserAdditional, error) {
+	additional := map[string]interface{}{
+		"user_id":    id,
+		"birth_date": request.BirthDate,
+		"address":    request.Address,
+	}
 
-func (db *DBConn) GetUserByID(ctx context.Context, userID int) (*entities.User, error) {
-	stmt, err := db.MariaDB.PrepareNamed(getUserByIDQuery)
+	_, err := db.MongoDB.Collection(USER_ADDITIONAL_COLLECTION).InsertOne(ctx, additional)
 	if err != nil {
 		return nil, err
+	}
+
+	return &models.UserAdditional{
+		BirthDate: request.BirthDate,
+		Address:   request.Address,
+	}, nil
+}
+
+func (db *DBConn) GetUserByID(ctx context.Context, userID int) (*models.User, error) {
+	stmt, err := db.MariaDB.PrepareNamed(getUserByIDQuery)
+	if err != nil {
+		return &models.User{}, err
 	}
 
 	args := map[string]interface{}{
@@ -181,7 +195,7 @@ func (db *DBConn) GetUserByID(ctx context.Context, userID int) (*entities.User, 
 
 	row := stmt.QueryRow(args)
 
-	var user entities.User
+	var user models.User
 	if err := row.Scan(
 		&user.ID,
 		&user.Email,
@@ -192,13 +206,24 @@ func (db *DBConn) GetUserByID(ctx context.Context, userID int) (*entities.User, 
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, err
+		return &models.User{}, err
+	}
+
+	userAdditionalDocument := db.MongoDB.Collection(USER_ADDITIONAL_COLLECTION).FindOne(ctx, bson.D{{"user_id", userID}})
+	if err := userAdditionalDocument.Err(); err != nil {
+		if err != mongo.ErrNoDocuments {
+			return &models.User{}, err
+		}
+	} else {
+		userAdditional := models.UserAdditional{}
+		userAdditionalDocument.Decode(&userAdditional)
+		user.Additional = &userAdditional
 	}
 
 	return &user, nil
 }
 
-func (db *DBConn) UpdateUser(ctx context.Context, request *entities.UpdateUserRequest) (*entities.User, error) {
+func (db *DBConn) UpdateUser(ctx context.Context, request *models.UpdateUserRequest) (*models.User, error) {
 	stmt, err := db.MariaDB.PrepareNamed(updateUserQuery)
 	if err != nil {
 		return nil, err
@@ -214,10 +239,10 @@ func (db *DBConn) UpdateUser(ctx context.Context, request *entities.UpdateUserRe
 
 	_, err = stmt.Exec(args)
 	if err != nil {
-		return nil, err
+		return &models.User{}, err
 	}
 
-	return &entities.User{
+	return &models.User{
 		ID:        request.ID,
 		Email:     request.Email,
 		Firstname: request.Firstname,
@@ -226,7 +251,33 @@ func (db *DBConn) UpdateUser(ctx context.Context, request *entities.UpdateUserRe
 }
 
 func (db *DBConn) DeleteUser(ctx context.Context, userID int) error {
-	stmt, err := db.MariaDB.PrepareNamed(deleteUserQuery)
+	tx, err := db.MariaDB.NewTx()
+	if err != nil {
+		return errors.Wrap(err, "failed to start transaction")
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+			return
+		}
+		tx.Commit()
+	}()
+
+	err = db.deleteUserTx(ctx, tx, userID)
+	if err != nil {
+		return err
+	}
+
+	err = db.deleteUserAdditional(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db *DBConn) deleteUserTx(ctx context.Context, tx Tx, userID int) error {
+	stmt, err := tx.PrepareNamed(deleteUserQuery)
 	if err != nil {
 		return err
 	}
@@ -241,5 +292,13 @@ func (db *DBConn) DeleteUser(ctx context.Context, userID int) error {
 		return err
 	}
 
+	return nil
+}
+
+func (db *DBConn) deleteUserAdditional(ctx context.Context, userID int) error {
+	_, err := db.MongoDB.Collection(USER_ADDITIONAL_COLLECTION).DeleteMany(ctx, bson.D{{"user_id", userID}})
+	if err != nil {
+		return err
+	}
 	return nil
 }

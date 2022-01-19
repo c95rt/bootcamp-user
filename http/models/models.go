@@ -1,40 +1,71 @@
 package models
 
-type User struct {
-	ID        int
-	Email     string
-	Firstname string
-	Lastname  string
-	Password  string
-	Token     string
-	Active    bool
-
-	Additional *UserAdditional
+type InsertUserRequest struct {
+	Email     string `json:"email"`
+	Firstname string `json:"firstname"`
+	Lastname  string `json:"lastname"`
+	Password  string `json:"password"`
+	BirthDate string `json:"birth_date"`
+	Address   string `json:"address"`
 }
 
-type InsertUserRequest struct {
-	Email     string
-	Firstname string
-	Lastname  string
-	Password  string
-	BirthDate string
-	Address   string
+type InsertUserResponse struct {
+	ID        int    `json:"id"`
+	Email     string `json:"email"`
+	Firstname string `json:"firstname"`
+	Lastname  string `json:"lastname"`
+	Password  string `json:"password"`
+	BirthDate string `json:"birth_date"`
+	Address   string `json:"address"`
 }
 
 type UpdateUserRequest struct {
-	ID        int
-	Email     string
-	Firstname string
-	Lastname  string
-	Password  string
+	ID        int    `json:"id"`
+	Email     string `json:"email"`
+	Firstname string `json:"firstname"`
+	Lastname  string `json:"lastname"`
+	Password  string `json:"password"`
+	BirthDate string `json:"birth_date"`
+	Address   string `json:"address"`
 }
 
-type UserAdditional struct {
-	BirthDate string
-	Address   string
+type UpdateUserResponse struct {
+	ID        int    `json:"id"`
+	Email     string `json:"email"`
+	Firstname string `json:"firstname"`
+	Lastname  string `json:"lastname"`
+	Password  string `json:"password"`
+	BirthDate string `json:"birth_date"`
+	Address   string `json:"address"`
 }
 
 type LoginRequest struct {
-	Email    string
-	Password string
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type LoginResponse struct {
+	Token string `json:"token"`
+}
+
+type DeleteUserRequest struct {
+	ID int `json:"id"`
+}
+
+type DeleteUserResponse struct {
+	ID int `json:"id"`
+}
+
+type GetUserRequest struct {
+	ID int `json:"id"`
+}
+
+type GetUserResponse struct {
+	ID        int    `json:"id"`
+	Email     string `json:"email"`
+	Firstname string `json:"firstname"`
+	Lastname  string `json:"lastname"`
+	Password  string `json:"password"`
+	BirthDate string `json:"birth_date"`
+	Address   string `json:"address"`
 }

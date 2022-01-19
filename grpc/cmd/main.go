@@ -1,11 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/joeshaw/envdecode"
-	joonix "github.com/joonix/log"
-	log "github.com/sirupsen/logrus"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 
 	"github.com/c95rt/bootcamp-user/grpc/config"
 	"github.com/c95rt/bootcamp-user/grpc/endpoints"
@@ -17,41 +20,67 @@ import (
 )
 
 func main() {
-	log.SetFormatter(joonix.NewFormatter())
-
-	var conf config.Configuration
-	if err := envdecode.Decode(&conf); err != nil {
-		log.Fatalf("could not load the app configuration: %v", err)
+	var logger log.Logger
+	{
+		logger = log.NewLogfmtLogger(os.Stderr)
+		logger = log.NewSyncLogger(logger)
+		logger = log.With(logger,
+			"service", "grpcUserService",
+			"time:", log.DefaultTimestampUTC,
+			"caller", log.DefaultCaller,
+		)
 	}
-	context := &config.AppContext{
-		Config: conf,
-	}
 
-	conn, err := config.CreateConnectionSQL(context.Config.MariaDBConn)
+	appConfig, err := config.NewAppConfig()
 	if err != nil {
-		log.Fatal(err)
+		level.Error(logger).Log("exit", err)
+		panic(err)
 	}
-	defer conn.Close()
 
-	repository, err := repository.NewRepository(conn)
+	mariaDBConn, err := config.CreateConnectionSQL(appConfig.Config.MariaDBConn)
 	if err != nil {
-		log.Fatal(err)
+		level.Error(logger).Log("exit", err)
+		panic(err)
+	}
+	defer mariaDBConn.Close()
+
+	mongoDBConn, err := config.CreateConnectionMongoDB(appConfig.Config.MongoDBConn)
+	if err != nil {
+		level.Error(logger).Log("exit", err)
+		panic(err)
 	}
 
-	srv := service.NewService(repository)
+	repository, err := repository.NewRepository(mariaDBConn, mongoDBConn)
+	if err != nil {
+		level.Error(logger).Log("exit", err)
+		panic(err)
+	}
+
+	srv := service.NewService(repository, logger)
 
 	endpoints := endpoints.MakeEndpoints(srv)
 	grpcServer := transport.NewGRPCServer(endpoints)
 
-	grpcListener, err := net.Listen("tcp", ":50051")
+	errs := make(chan error)
+	go func() {
+		c := make(chan os.Signal)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGALRM)
+		errs <- fmt.Errorf("%s", <-c)
+	}()
+
+	grpcListener, err := net.Listen("tcp", fmt.Sprintf(":%s", appConfig.Config.GRPCPort))
 	if err != nil {
-		log.Fatal(err)
+		level.Error(logger).Log("exit", err)
+		panic(err)
 	}
+	defer grpcListener.Close()
 
 	go func() {
 		baseServer := grpc.NewServer()
 		pb.RegisterUserServiceServer(baseServer, grpcServer)
-		log.Info("server started")
+		level.Info(logger).Log("msg", "Server started")
 		baseServer.Serve(grpcListener)
 	}()
+
+	level.Error(logger).Log("exit", <-errs)
 }

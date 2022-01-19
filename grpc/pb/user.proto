@@ -5,12 +5,11 @@ option go_package = "github.com/c95rt/grpc/pb";
 package pb;
 
 service UserService {
-    rpc Login (LoginRequest) returns (User) {}
-    rpc InsertUser (InsertUserRequest) returns (User) {}
-}
-
-message User {
-    string ID = 1;
+    rpc Login (LoginRequest) returns (LoginResponse) {}
+    rpc InsertUser (InsertUserRequest) returns (InsertUserResponse) {}
+    rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse) {}
+    rpc GetUser (GetUserRequest) returns (GetUserResponse) {}
+    rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse) {}
 }
 
 message LoginRequest {
@@ -18,11 +17,67 @@ message LoginRequest {
     string password = 2;
 }
 
+message LoginResponse {
+    string token = 1;
+}
+
 message InsertUserRequest {
     string email = 1;
     string firstname = 2;
     string lastname = 3;
     string password = 4;
-    string birthDate = 5;
+    string birth_date = 5;
     string address = 6;
+}
+
+message InsertUserResponse {
+    string id = 1;
+    string email = 2;
+    string firstname = 3;
+    string lastname = 4;
+    string password = 5;
+    string birth_date = 6;
+    string address = 7;
+}
+
+message UpdateUserRequest {
+    string id = 1;
+    string email = 2;
+    string firstname = 3;
+    string lastname = 4;
+    string password = 5;
+    string birth_date = 6;
+    string address = 7;
+}
+
+message UpdateUserResponse {
+    string id = 1;
+    string email = 2;
+    string firstname = 3;
+    string lastname = 4;
+    string password = 5;
+    string birth_date = 6;
+    string address = 7;
+}
+
+message GetUserRequest {
+    string id = 1;
+}
+
+message GetUserResponse {
+    string id = 1;
+    string email = 2;
+    string firstname = 3;
+    string lastname = 4;
+    string password = 5;
+    string birth_date = 6;
+    string address = 7;
+}
+
+message DeleteUserRequest {
+    string id = 1;
+}
+
+message DeleteUserResponse {
+    string id = 1;
 }

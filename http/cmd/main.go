@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/joeshaw/envdecode"
 	"google.golang.org/grpc"
 
 	"github.com/c95rt/bootcamp-user/http/config"
@@ -20,27 +19,14 @@ import (
 	userTransport "github.com/c95rt/bootcamp-user/http/transport"
 )
 
-type logLogger struct {
-	log.Logger
-}
-
-func (l logLogger) exit(err error) {
-	level.Error(l).Log("exit", err)
-	os.Exit(-1)
-}
-
 func main() {
-	var (
-		grpcUserServiceAddr = flag.String("addr", "localhost:50051", "The gprcUserServer address in the format of host:port")
-		httpAddr            = flag.String("http", ":8080", "http listen address")
-	)
-	var logger logLogger
+	var logger log.Logger
 	{
-		logger.Logger = log.NewLogfmtLogger(os.Stderr)
-		logger.Logger = log.NewSyncLogger(logger)
-		logger.Logger = log.With(logger,
-			"service", "httpService",
-			"time", log.DefaultTimestampUTC,
+		logger = log.NewLogfmtLogger(os.Stderr)
+		logger = log.NewSyncLogger(logger)
+		logger = log.With(logger,
+			"service", "httpUserService",
+			"time:", log.DefaultTimestampUTC,
 			"caller", log.DefaultCaller,
 		)
 	}
@@ -48,29 +34,31 @@ func main() {
 	level.Info(logger).Log("message", "http service started")
 	defer level.Info(logger).Log("message", "http service ended")
 
-	var conf config.Configuration
-	if err := envdecode.Decode(&conf); err != nil {
-		logger.exit(err)
+	appConfig, err := config.NewAppConfig()
+	if err != nil {
+		level.Error(logger).Log("exit", err)
+		panic(err)
 	}
+
+	var (
+		grpcUserServiceAddr = flag.String("addr", fmt.Sprintf("%s:%s", appConfig.Config.GRPCConn.URL, appConfig.Config.GRPCConn.Port), "The gprcUserServer address in the format of host:port")
+		httpAddr            = flag.String("http", fmt.Sprintf(":%s", appConfig.Config.HTTPPort), "http listen address")
+	)
 
 	flag.Parse()
 
-	context := &config.AppContext{
-		Config: conf,
-	}
-
-	var err error
 	var grpcUserServiceConn *grpc.ClientConn
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 	grpcUserServiceConn, err = grpc.Dial(*grpcUserServiceAddr, opts...)
 	if err != nil {
-		logger.exit(err)
+		level.Error(logger).Log("exit", err)
+		panic(err)
 	}
 
 	repository := userRepository.NewRepository(grpcUserServiceConn)
 
 	var srv userService.Service
-	srv = userService.NewService(repository)
+	srv = userService.NewService(repository, logger)
 
 	errChan := make(chan error)
 	go func() {
@@ -81,7 +69,7 @@ func main() {
 
 	endpoints := userEndpoints.MakeEndpoints(srv)
 	go func() {
-		httpHandler := userTransport.NewHTTPServer(endpoints)
+		httpHandler := userTransport.NewHTTPServer(appConfig, endpoints)
 		errChan <- http.ListenAndServe(*httpAddr, httpHandler)
 	}()
 

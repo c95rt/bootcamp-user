@@ -1,31 +1,30 @@
 package config
 
 import (
-	"fmt"
-	"strconv"
-
-	"github.com/jmoiron/sqlx"
+	"github.com/joeshaw/envdecode"
 )
 
-type Configuration struct {
-	MariaDBConn mariadbConn
+type Config struct {
+	HTTPPort  string `env:"HTTP_PORT,default=3001"`
+	GRPCConn  gRPCConn
+	JWTSecret string `env:"JWT_SECRET,default=5jqo59fAMvi1fj1oi1KDkmwcire9jpp"`
 }
 
-type AppContext struct {
-	Config      Configuration
-	MariaDBConn *sqlx.DB
+type AppConfig struct {
+	Config Config
 }
 
-type mariadbConn struct {
-	URL            string `env:"DATA_BASE_URL,default=localhost"`
-	Name           string `env:"DATA_BASE_NAME,default=bootcamp"`
-	User           string `env:"DATA_BASE_USER,default=admin"`
-	Port           int    `env:"DATA_BASE_PORT,default=3306"`
-	Password       string `env:"DATA_BASE_PASSWORD,default=admin"`
-	OpenConnection int    `env:"DATA_BASE_MAX_OPEN_CONNECTION,default=5"`
+type gRPCConn struct {
+	URL  string `env:"GRPC_URL,default=docker.for.mac.localhost"`
+	Port string `env:"GRPC_PORT,default=50051"`
 }
 
-func CreateConnectionSQL(conf mariadbConn) (*sqlx.DB, error) {
-	conn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", conf.User, conf.Password, conf.URL, strconv.Itoa(conf.Port), conf.Name)
-	return sqlx.Connect("mysql", conn)
+func NewAppConfig() (*AppConfig, error) {
+	var conf Config
+	if err := envdecode.Decode(&conf); err != nil {
+		return nil, err
+	}
+	return &AppConfig{
+		Config: conf,
+	}, nil
 }

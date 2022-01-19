@@ -1,0 +1,57 @@
+version: "3.7"
+services:
+  mariadb:
+    image: mariadb:10.3.23
+    restart: always
+    volumes:
+      - mariadb-data:/var/lib/mysql
+      - ./development:/docker-entrypoint-initdb.d
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: bootcamp
+      MYSQL_USER: root
+      MYSQL_PASSWORD: admin
+    ports:
+      - 3307:3306
+  mongo:
+    image: mongo
+    restart: always
+    ports:
+      - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: admin
+  base:
+    # env_file:
+    #   - prod.env
+    build:
+      dockerfile: ./Dockerfile.development
+      context: .
+    # depends_on:
+    #   - mariadb
+    #   - mongo
+    networks:
+      - proxy
+  grpc:
+    extends:
+      service: base
+    command: go run ./grpc/cmd main.go
+    environment:
+      - PORT=50051
+    ports:
+      - 50051:50051
+    restart: always
+  http:
+    extends:
+      service: base
+    command: go run ./http/cmd main.go
+    environment:
+      - PORT=3001
+    ports:
+      - 3001:3001
+    restart: always
+networks:
+  proxy:
+    driver: bridge
+volumes:
+  mariadb-data:

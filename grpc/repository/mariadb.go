@@ -73,6 +73,10 @@ func New(db *sqlx.DB) (*DB, error) {
 		break
 	}
 
+	if err := createTableIfNotExists(db, createUserTableQuery); err != nil {
+		return nil, err
+	}
+
 	return dbWrapper, nil
 }
 
@@ -86,4 +90,18 @@ func tryOpenConnection(db *sqlx.DB) (*DB, error) {
 		db,
 		&transactorImpl{db},
 	}, nil
+}
+
+func createTableIfNotExists(db *sqlx.DB, query string) error {
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.Exec()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
